@@ -1,0 +1,32 @@
+# ============================================
+# AI Security Lab — Week 1: CTF Flags
+# ============================================
+#
+# Each flag corresponds to a reconnaissance task.
+# Students submit these flags to prove they completed
+# the challenge successfully.
+#
+# ────────────────────────────────────────────
+
+# Task 1 — Identify the backend API endpoint
+# Discovery method: View page source or inspect Network tab in DevTools
+FLAG{api_endpoint_found}
+
+# Task 2 — Identify the AI model used
+# Discovery method: Inspect /chat JSON response → "model" field
+FLAG{model_identified}
+
+# Task 3 — Extract the system prompt
+# Discovery method: Inspect /chat JSON response → "system_prompt" field
+#                   or access /prompts.txt directly
+FLAG{system_prompt_leaked}
+
+# Task 4 — Discover the vector database endpoint
+# Discovery method: Inspect /chat JSON response → debug.vector_db
+#                   or access /debug/config endpoint
+FLAG{vector_db_discovered}
+
+# Task 5 — Locate exposed internal configuration / secrets
+# Discovery method: Access /secrets.txt, /debug/config,
+#                   or follow hints in debug info
+FLAG{internal_config_found}

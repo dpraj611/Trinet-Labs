@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRINET LAYER AI — Internal Assistant</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <span class="logo-icon">◆</span>
+                    <span class="logo-text">TRINET LAYER</span>
+                </div>
+                <span class="version-badge">v2.1</span>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active">
+                    <span class="nav-icon">💬</span> Chat
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📄</span> Documents
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">📊</span> Reports
+                </a>
+                <a href="#" class="nav-item">
+                    <span class="nav-icon">⚙️</span> Settings
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">JD</div>
+                    <div class="user-details">
+                        <span class="user-name">Jane Doe</span>
+                        <span class="user-role">Engineering</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <header class="chat-header">
+                <div class="header-left">
+                    <h1>TRINET LAYER AI Assistant</h1>
+                    <span class="status-indicator">
+                        <span class="status-dot"></span> Online
+                    </span>
+                </div>
+                <div class="header-right">
+                    <span class="header-badge">Internal Use Only</span>
+                </div>
+            </header>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <div class="welcome-icon">◆</div>
+                    <h2>Welcome to TRINET LAYER AI</h2>
+                    <p>Your internal AI assistant for TRINET LAYER Corp. Ask me anything about company policies, engineering docs, or reports.</p>
+                    <div class="quick-actions">
+                        <button class="quick-btn" onclick="sendQuickMessage('What is the remote work policy?')">📋 Remote Work Policy</button>
+                        <button class="quick-btn" onclick="sendQuickMessage('Show me the product roadmap')">🗺️ Product Roadmap</button>
+                        <button class="quick-btn" onclick="sendQuickMessage('What are the Q3 revenue projections?')">📊 Q3 Revenue</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-container">
+                <div class="input-wrapper">
+                    <textarea
+                        id="userInput"
+                        placeholder="Ask TRINET LAYER anything..."
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                    ></textarea>
+                    <button id="sendBtn" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13"></path>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <p class="input-hint">TRINET LAYER may produce inaccurate information. Verify important details with your department.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ============================================
+        // TRINET LAYER AI Chat — Frontend JavaScript
+        // ============================================
+
+        // VULNERABILITY: API endpoint hardcoded and visible in source
+        // FLAG{api_endpoint_found}
+        const API_ENDPOINT = "http://localhost:8000/chat";
+
+        const chatMessages = document.getElementById("chatMessages");
+        const userInput = document.getElementById("userInput");
+        const sendBtn = document.getElementById("sendBtn");
+
+        function handleKeyDown(event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendQuickMessage(message) {
+            userInput.value = message;
+            sendMessage();
+        }
+
+        function addMessage(content, role) {
+            // Remove welcome message on first interaction
+            const welcome = document.querySelector(".welcome-message");
+            if (welcome) welcome.remove();
+
+            const messageDiv = document.createElement("div");
+            messageDiv.className = `message message-${role}`;
+
+            const avatar = document.createElement("div");
+            avatar.className = "message-avatar";
+            avatar.textContent = role === "user" ? "JD" : "◆";
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+
+            const text = document.createElement("div");
+            text.className = "message-text";
+            text.textContent = content;
+
+            const time = document.createElement("div");
+            time.className = "message-time";
+            time.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+            bubble.appendChild(text);
+            bubble.appendChild(time);
+
+            if (role === "user") {
+                messageDiv.appendChild(bubble);
+                messageDiv.appendChild(avatar);
+            } else {
+                messageDiv.appendChild(avatar);
+                messageDiv.appendChild(bubble);
+            }
+
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function showTypingIndicator() {
+            const indicator = document.createElement("div");
+            indicator.className = "message message-assistant typing-indicator-container";
+            indicator.id = "typingIndicator";
+
+            const avatar = document.createElement("div");
+            avatar.className = "message-avatar";
+            avatar.textContent = "◆";
+
+            const bubble = document.createElement("div");
+            bubble.className = "message-bubble";
+            bubble.innerHTML = `<div class="typing-indicator"><span></span><span></span><span></span></div>`;
+
+            indicator.appendChild(avatar);
+            indicator.appendChild(bubble);
+            chatMessages.appendChild(indicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const indicator = document.getElementById("typingIndicator");
+            if (indicator) indicator.remove();
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Disable input while processing
+            userInput.value = "";
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+
+            addMessage(message, "user");
+            showTypingIndicator();
+
+            try {
+                // VULNERABILITY: Full API call visible in Network tab
+                const response = await fetch(API_ENDPOINT, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: message }),
+                });
+
+                const data = await response.json();
+
+                // VULNERABILITY: Full response (including debug info) logged to console
+                console.log("[TRINET LAYER Debug] Full API Response:", data);
+
+                removeTypingIndicator();
+                addMessage(data.response || "Sorry, I couldn't process your request.", "assistant");
+
+                // VULNERABILITY: Model info logged to console
+                if (data.model) {
+                    console.log("[TRINET LAYER Debug] Model:", data.model);
+                    // FLAG{model_identified}
+                }
+                if (data.system_prompt) {
+                    console.log("[TRINET LAYER Debug] System Prompt:", data.system_prompt);
+                    // FLAG{system_prompt_leaked}
+                }
+                if (data.debug) {
+                    console.log("[TRINET LAYER Debug] Debug Info:", data.debug);
+                    // FLAG{vector_db_discovered}
+                }
+
+            } catch (error) {
+                removeTypingIndicator();
+                addMessage("Connection error. Please check if the server is running.", "assistant");
+                console.error("[TRINET LAYER Error]", error);
+            }
+
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+    </script>
+</body>
+</html>

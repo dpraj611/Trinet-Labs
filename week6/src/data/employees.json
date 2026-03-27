@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "Arjun Mehta",
+    "role": "CEO",
+    "department": "Executive",
+    "email": "arjun.mehta@trinetlayer.com",
+    "interests": ["quarterly targets", "board meetings", "investor updates"],
+    "recentActivity": "Reviewed Q3 investor report yesterday",
+    "riskProfile": "high-value"
+  },
+  {
+    "id": 2,
+    "name": "Priya Sharma",
+    "role": "HR Manager",
+    "department": "Human Resources",
+    "email": "priya.sharma@trinetlayer.com",
+    "interests": ["employee onboarding", "policy updates", "compliance"],
+    "recentActivity": "Sent onboarding docs to new joiners",
+    "riskProfile": "medium"
+  },
+  {
+    "id": 3,
+    "name": "Kiran Raj",
+    "role": "IT Support Lead",
+    "department": "IT",
+    "email": "kiran.raj@trinetlayer.com",
+    "interests": ["system updates", "patch management", "network monitoring"],
+    "recentActivity": "Deployed firewall patch on Monday",
+    "riskProfile": "low"
+  },
+  {
+    "id": 4,
+    "name": "Neha Iyer",
+    "role": "Intern",
+    "department": "Marketing",
+    "email": "neha.iyer@trinetlayer.com",
+    "interests": ["social media", "campaigns", "brand content"],
+    "recentActivity": "Submitted creative brief for Q4 campaign",
+    "riskProfile": "low"
+  },
+  {
+    "id": 5,
+    "name": "Dr. Suresh Babu",
+    "role": "Senior Researcher",
+    "department": "R&D",
+    "email": "suresh.babu@trinetlayer.com",
+    "interests": ["academic papers", "grant proposals", "lab results"],
+    "recentActivity": "Submitted grant proposal to Ministry of Science",
+    "riskProfile": "medium"
+  }
+]

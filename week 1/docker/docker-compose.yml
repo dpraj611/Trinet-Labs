@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  ai-chatbot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: trinet_layer-ai-lab
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG_MODE=true
+      - OPENAI_API_KEY=sk-proj-NvM4x7Tq9Rb2Ks8Wp1Yd3Lf6Hn0Jm5Cg7Ae4Ui2Xo
+    restart: unless-stopped

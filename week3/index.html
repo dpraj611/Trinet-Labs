@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRINET // AI Red Team Lab</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap"
+        rel="stylesheet" />
+    <style>
+        :root {
+            --green: #00c8ff;
+            --green-dim: #0088cc;
+            --green-dark: #002a3b;
+            --bg: #020810;
+            --bg2: #050d18;
+            --bg3: #060a14;
+            --red: #ff2222;
+            --amber: #ffb700;
+            --cyan: #00ffff;
+            --panel: #080f1e;
+            --border: #0d2a3d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--green);
+            font-family: 'Share Tech Mono', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Scanline overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 200, 255, 0.015) 2px,
+                    rgba(0, 200, 255, 0.015) 4px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        /* CRT flicker */
+        @keyframes flicker {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            92% {
+                opacity: 1;
+            }
+
+            93% {
+                opacity: 0.85;
+            }
+
+            94% {
+                opacity: 1;
+            }
+
+            96% {
+                opacity: 0.92;
+            }
+        }
+
+        body {
+            animation: flicker 8s infinite;
+        }
+
+        /* Header */
+        header {
+            border-bottom: 1px solid var(--green-dark);
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg2);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.3rem;
+            letter-spacing: 4px;
+            color: var(--green);
+            text-shadow: 0 0 20px var(--green);
+        }
+
+        .logo span {
+            color: var(--red);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 24px;
+            font-size: 0.7rem;
+            color: var(--green-dim);
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            margin-right: 6px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                box-shadow: 0 0 6px var(--green);
+            }
+
+            50% {
+                opacity: 0.4;
+                box-shadow: none;
+            }
+        }
+
+        /* Layout */
+        .layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            min-height: calc(100vh - 57px);
+        }
+
+        /* Sidebar */
+        aside {
+            border-right: 1px solid var(--border);
+            background: var(--bg2);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .section-label {
+            font-size: 0.6rem;
+            letter-spacing: 3px;
+            color: var(--green-dark);
+            padding: 12px 0 4px;
+            text-transform: uppercase;
+        }
+
+        .nav-btn {
+            background: none;
+            border: 1px solid var(--green-dark);
+            color: var(--green-dim);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.8rem;
+            padding: 10px 14px;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s;
+            position: relative;
+            letter-spacing: 1px;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            background: var(--green-dark);
+            color: var(--green);
+            border-color: var(--green);
+            box-shadow: inset 0 0 20px rgba(0, 255, 65, 0.05), 0 0 8px rgba(0, 255, 65, 0.2);
+        }
+
+        .nav-btn::before {
+            content: '▶ ';
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .nav-btn.active::before,
+        .nav-btn:hover::before {
+            opacity: 1;
+        }
+
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .badge {
+            float: right;
+            font-size: 0.6rem;
+            padding: 2px 6px;
+            border-radius: 2px;
+            background: var(--green-dark);
+            color: var(--green);
+        }
+
+        .badge.warn {
+            background: #3b1a00;
+            color: var(--amber);
+        }
+
+        .badge.info {
+            background: #003b3b;
+            color: var(--cyan);
+        }
+
+        /* Main panel */
+        main {
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .panel.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
+        .panel-header {
+            padding: 20px 28px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel);
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            letter-spacing: 3px;
+            margin-bottom: 4px;
+        }
+
+        .panel-sub {
+            font-size: 0.7rem;
+            color: var(--green-dim);
+        }
+
+        .panel-body {
+            padding: 24px 28px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Terminal */
+        .terminal {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            padding: 16px;
+            font-size: 0.78rem;
+            line-height: 1.8;
+            min-height: 160px;
+            max-height: 260px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .terminal::before {
+            content: 'SYSTEM LOG ////';
+            position: absolute;
+            top: -1px;
+            left: 12px;
+            font-size: 0.6rem;
+            background: var(--bg3);
+            color: var(--green-dark);
+            padding: 0 6px;
+            letter-spacing: 2px;
+        }
+
+        .log-line {
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-time {
+            color: var(--green-dark);
+        }
+
+        .log-msg {
+            color: var(--green-dim);
+        }
+
+        .log-msg.highlight {
+            color: var(--green);
+        }
+
+        .log-msg.warn {
+            color: var(--amber);
+        }
+
+        .log-msg.error {
+            color: var(--red);
+        }
+
+        .cursor::after {
+            content: '█';
+            animation: blink 0.8s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* Progress */
+        .progress-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--green-dim);
+        }
+
+        .progress-bar {
+            height: 6px;
+            background: var(--green-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--green);
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        /* Controls */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label {
+            font-size: 0.68rem;
+            color: var(--green-dim);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 4px;
+            background: var(--green-dark);
+            outline: none;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--green);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--green), 0 0 0 3px rgba(0, 200, 255, 0.15);
+            transition: box-shadow 0.15s;
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 16px var(--green), 0 0 0 5px rgba(0, 200, 255, 0.25);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--green);
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--green);
+        }
+
+        .slider::-moz-range-track {
+            height: 4px;
+            background: var(--green-dark);
+            border-radius: 2px;
+        }
+
+        .slider-val {
+            font-size: 0.85rem;
+            color: var(--green);
+            min-width: 38px;
+            text-align: right;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            padding: 12px 24px;
+            border: 1px solid var(--green);
+            background: transparent;
+            color: var(--green);
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--green);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.2s ease;
+            z-index: -1;
+        }
+
+        .btn:hover {
+            color: var(--bg);
+        }
+
+        .btn:hover::before {
+            transform: scaleX(1);
+        }
+
+        .btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .btn:disabled::before {
+            display: none;
+        }
+
+        .btn.red {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .btn.red::before {
+            background: var(--red);
+        }
+
+        .btn.amber {
+            border-color: var(--amber);
+            color: var(--amber);
+        }
+
+        .btn.amber::before {
+            background: var(--amber);
+        }
+
+        /* Image grid */
+        .img-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .img-card {
+            border: 1px solid var(--border);
+            background: var(--panel);
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .img-card img {
+            width: 100%;
+            image-rendering: pixelated;
+        }
+
+        .img-card-label {
+            font-size: 0.65rem;
+            color: var(--green-dim);
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        /* Result cards */
+        .result-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .result-card {
+            border: 1px solid var(--border);
+            padding: 14px;
+            background: var(--panel);
+        }
+
+        .result-card-label {
+            font-size: 0.62rem;
+            letter-spacing: 2px;
+            color: var(--green-dark);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .result-card-val {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.4rem;
+            color: var(--green);
+        }
+
+        .result-card-val.red {
+            color: var(--red);
+            text-shadow: 0 0 10px var(--red);
+        }
+
+        .result-card-val.amber {
+            color: var(--amber);
+        }
+
+        .attack-success {
+            border: 1px solid var(--red);
+            background: rgba(255, 34, 34, 0.05);
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            color: var(--red);
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        .attack-fail {
+            border: 1px solid var(--green-dark);
+            background: rgba(0, 200, 255, 0.03);
+            padding: 12px 16px;
+            font-size: 0.8rem;
+            color: var(--green-dim);
+            letter-spacing: 2px;
+            text-align: center;
+        }
+
+        /* Upload */
+        .upload-zone {
+            border: 1px dashed var(--green-dark);
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--green-dim);
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .upload-zone input {
+            display: none;
+        }
+
+        /* Conf chart */
+        .conf-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .conf-card {
+            border: 1px solid var(--border);
+            background: var(--panel);
+            padding: 10px;
+        }
+
+        .conf-card img {
+            width: 100%;
+        }
+
+        .conf-card-label {
+            font-size: 0.65rem;
+            color: var(--green-dim);
+            letter-spacing: 2px;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        /* Accuracy bars */
+        .acc-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .acc-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .acc-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: var(--green-dim);
+        }
+
+        .acc-bar {
+            height: 20px;
+            background: var(--green-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .acc-fill {
+            height: 100%;
+            transition: width 1s ease;
+            display: flex;
+            align-items: center;
+            padding-left: 8px;
+            font-size: 0.7rem;
+        }
+
+        .acc-fill.victim {
+            background: var(--green);
+            color: var(--bg);
+        }
+
+        .acc-fill.stolen {
+            background: var(--amber);
+            color: var(--bg);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--green-dark);
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 4px 0;
+        }
+
+        .hint {
+            font-size: 0.65rem;
+            color: var(--green-dark);
+            letter-spacing: 1px;
+            line-height: 1.6;
+        }
+
+        .step-indicator {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .step-pip {
+            width: 12px;
+            height: 12px;
+            background: var(--green-dark);
+            transition: background 0.1s;
+        }
+
+        .step-pip.done {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+        }
+
+        @media (max-width: 768px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            aside {
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .controls-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .img-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .conf-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── Lab Complete Modal ───────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal {
+            border: 1px solid var(--green);
+            background: var(--bg2);
+            padding: 48px 40px;
+            max-width: 560px;
+            width: 90%;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 0 60px rgba(0, 200, 255, 0.15), inset 0 0 40px rgba(0, 200, 255, 0.03);
+            animation: modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .modal-skull {
+            font-size: 3.5rem;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 0 16px var(--green));
+            animation: skullPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes skullPulse {
+
+            0%,
+            100% {
+                filter: drop-shadow(0 0 16px var(--green));
+            }
+
+            50% {
+                filter: drop-shadow(0 0 32px var(--green)) drop-shadow(0 0 8px #fff);
+            }
+        }
+
+        .modal-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.6rem;
+            font-weight: 900;
+            letter-spacing: 6px;
+            color: var(--green);
+            text-shadow: 0 0 20px var(--green);
+            margin-bottom: 8px;
+        }
+
+        .modal-sub {
+            font-size: 0.75rem;
+            color: var(--green-dim);
+            letter-spacing: 3px;
+            margin-bottom: 28px;
+        }
+
+        .modal-phases {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 28px;
+            text-align: left;
+        }
+
+        .modal-phase {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.75rem;
+            color: var(--green-dim);
+            padding: 6px 10px;
+            border: 1px solid var(--green-dark);
+            background: rgba(0, 200, 255, 0.03);
+        }
+
+        .modal-phase .check {
+            color: var(--green);
+            font-size: 0.9rem;
+        }
+
+        .modal-score {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 3px;
+            color: var(--green-dark);
+            margin-bottom: 24px;
+        }
+
+        .modal-score span {
+            color: var(--green);
+            font-size: 1.1rem;
+        }
+
+        .modal-close {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 3px;
+            padding: 12px 32px;
+            border: 1px solid var(--green);
+            background: transparent;
+            color: var(--green);
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--green);
+            color: var(--bg);
+        }
+
+        /* Matrix rain behind modal */
+        .modal-matrix {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            opacity: 0.06;
+            font-size: 10px;
+            line-height: 12px;
+            color: var(--green);
+            word-break: break-all;
+        }
+
+        /* ── Explanation boxes ───────────────────────────────────────────────────── */
+        .explain-box {
+            border: 1px solid var(--border);
+            background: rgba(0, 200, 255, 0.03);
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .explain-title {
+            font-size: 0.62rem;
+            letter-spacing: 3px;
+            color: var(--green-dim);
+            margin-bottom: 2px;
+        }
+
+        .explain-box p {
+            font-size: 0.74rem;
+            line-height: 1.8;
+            color: var(--green-dim);
+        }
+
+        .explain-box strong {
+            color: var(--green);
+        }
+
+        .explain-box em {
+            color: var(--amber);
+            font-style: normal;
+        }
+
+        .explain-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .explain-item {
+            border: 1px solid var(--green-dark);
+            padding: 10px 12px;
+            font-size: 0.71rem;
+            line-height: 1.7;
+            color: var(--green-dim);
+        }
+
+        .explain-item-title {
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            color: var(--green);
+            margin-bottom: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .explain-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo">TRI<span>NET</span> // AI RED TEAM</div>
+        <div class="status-bar">
+            <span><span class="status-dot"></span>SYSTEM ONLINE</span>
+            <span id="hdr-device">CPU MODE</span>
+            <span id="hdr-model-status">MODEL: NOT LOADED</span>
+        </div>
+    </header>
+
+    <div class="layout">
+        <aside>
+            <div class="section-label">// MISSION PHASES</div>
+            <button class="nav-btn active" onclick="showPanel('train')">01 // TRAIN VICTIM AI <span
+                    class="badge info">START</span></button>
+            <button class="nav-btn" onclick="showPanel('recon')" id="btn-recon" disabled>02 // RECON</button>
+            <button class="nav-btn" onclick="showPanel('upload')" id="btn-upload" disabled>03 // UPLOAD TARGET</button>
+            <button class="nav-btn" onclick="showPanel('fgsm')" id="btn-fgsm" disabled>04 // FGSM ATTACK <span
+                    class="badge warn">FAST</span></button>
+            <button class="nav-btn" onclick="showPanel('pgd')" id="btn-pgd" disabled>05 // PGD ATTACK <span
+                    class="badge warn">ADV</span></button>
+            <button class="nav-btn" onclick="showPanel('extract')" id="btn-extract" disabled>06 // MODEL THEFT</button>
+
+            <div class="divider" style="margin-top:auto;"></div>
+            <div class="hint">
+                Run phases in order.<br>
+                Train first, then attack.<br><br>
+                FGSM = fast single-step<br>
+                PGD = iterative, stronger<br>
+                Model theft = black-box
+            </div>
+        </aside>
+
+        <main>
+
+            <!-- TRAIN -->
+            <div class="panel active" id="panel-train">
+                <div class="panel-header">
+                    <div class="panel-title">▌ DEPLOY TARGET SYSTEM</div>
+                    <div class="panel-sub">Train the NeuralVision CNN on MNIST — this becomes the victim model.</div>
+                </div>
+                <div class="panel-body">
+                    <div class="terminal" id="train-log"><span class="cursor"></span></div>
+                    <div class="progress-wrap">
+                        <div class="progress-label">
+                            <span id="train-epoch">EPOCH 0/3</span>
+                            <span id="train-pct">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="train-bar"></div>
+                        </div>
+                        <div class="progress-label">
+                            <span>LOSS</span>
+                            <span id="train-loss">—</span>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn" id="btn-start-train" onclick="startTraining()">⚡ INITIALIZE
+                            TRAINING</button>
+                    </div>
+                    <div class="hint">
+                        Training 3 epochs on MNIST (60k images). Takes ~60–120s on CPU, ~15s on GPU.<br>
+                        The trained CNN will be used as the "victim" for all subsequent attacks.
+                    </div>
+                </div>
+            </div>
+
+            <!-- RECON -->
+            <div class="panel" id="panel-recon">
+                <div class="panel-header">
+                    <div class="panel-title">▌ RECONNAISSANCE</div>
+                    <div class="panel-sub">Observe the victim model's predictions and confidence on a test image.</div>
+                </div>
+                <div class="panel-body">
+                    <div class="result-row" id="recon-results">
+                        <div class="result-card">
+                            <div class="result-card-label">TRUE LABEL</div>
+                            <div class="result-card-val" id="recon-true">—</div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-card-label">MODEL PREDICTION</div>
+                            <div class="result-card-val" id="recon-pred">—</div>
+                        </div>
+                    </div>
+                    <div class="img-grid" id="recon-img-wrap" style="grid-template-columns:1fr 1fr;">
+                        <div class="img-card">
+                            <img id="recon-img" src="" style="display:none" />
+                            <div class="img-card-label">TARGET IMAGE</div>
+                        </div>
+                        <div class="img-card">
+                            <img id="recon-conf" src="" style="display:none" />
+                            <div class="img-card-label">CONFIDENCE DISTRIBUTION</div>
+                        </div>
+                    </div>
+                    <div class="hint">This is the image that will be used for FGSM and PGD attacks. You can swap it in
+                        the Upload panel.</div>
+                </div>
+            </div>
+
+            <!-- UPLOAD -->
+            <div class="panel" id="panel-upload">
+                <div class="panel-header">
+                    <div class="panel-title">▌ INJECT CUSTOM TARGET</div>
+                    <div class="panel-sub">Upload a 28×28 grayscale digit image to use as the attack target.</div>
+                </div>
+                <div class="panel-body">
+                    <label class="upload-zone" id="upload-zone">
+                        <input type="file" id="file-input" accept="image/*" onchange="handleUpload(this)" />
+                        <div>▲ DROP IMAGE HERE<br><span style="font-size:0.65rem;color:var(--green-dark);">28×28
+                                grayscale preferred. Will be auto-resized.</span></div>
+                    </label>
+                    <div class="result-row" id="upload-result" style="display:none">
+                        <div class="result-card">
+                            <div class="result-card-label">MODEL PREDICTS</div>
+                            <div class="result-card-val" id="upload-pred">—</div>
+                        </div>
+                    </div>
+                    <div class="img-grid" id="upload-imgs" style="grid-template-columns:1fr 1fr;display:none">
+                        <div class="img-card">
+                            <img id="upload-img" src="" />
+                            <div class="img-card-label">UPLOADED IMAGE</div>
+                        </div>
+                        <div class="img-card">
+                            <img id="upload-conf" src="" />
+                            <div class="img-card-label">CONFIDENCE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FGSM -->
+            <div class="panel" id="panel-fgsm">
+                <div class="panel-header">
+                    <div class="panel-title">▌ FGSM ATTACK</div>
+                    <div class="panel-sub">Fast Gradient Sign Method — single-step adversarial perturbation.</div>
+                </div>
+                <div class="panel-body">
+                    <div class="explain-box">
+                        <div class="explain-title">// WHAT IS FGSM?</div>
+                        <p>The <strong>Fast Gradient Sign Method</strong> crafts an adversarial example in a single
+                            step. It computes the gradient of the loss with respect to the input image — essentially
+                            asking <em>"which direction should each pixel move to maximally confuse the model?"</em> —
+                            then nudges every pixel by exactly ε in that direction.</p>
+                        <div class="explain-grid">
+                            <div class="explain-item">
+                                <div class="explain-item-title">ε (EPSILON)</div>
+                                Controls perturbation size. Too small and the model shrugs it off. Too large and the
+                                image looks visibly distorted to humans. Your goal: find the point where the model
+                                breaks but the image still looks normal.
+                            </div>
+                            <div class="explain-item">
+                                <div class="explain-item-title">WHY DOES IT WORK?</div>
+                                Neural networks are locally linear in high dimensions — a tiny coordinated push across
+                                all input pixels accumulates into a large shift in output logits, flipping the
+                                prediction entirely.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="controls-grid">
+                        <div class="control-group">
+                            <div class="control-label">Epsilon (ε) — perturbation magnitude</div>
+                            <div class="control-row">
+                                <input type="range" class="slider" id="fgsm-eps" min="0.01" max="0.5" step="0.01"
+                                    value="0.01"
+                                    oninput="document.getElementById('fgsm-eps-val').textContent=this.value" />
+                                <span class="slider-val" id="fgsm-eps-val">0.01</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="terminal" id="fgsm-log"></div>
+                    <button class="btn red" id="btn-fgsm-run" onclick="runFGSM()">⚡ LAUNCH FGSM ATTACK</button>
+
+                    <div id="fgsm-results" style="display:none; display:flex; flex-direction:column; gap:16px;">
+                        <div class="result-row">
+                            <div class="result-card">
+                                <div class="result-card-label">ORIGINAL PRED</div>
+                                <div class="result-card-val" id="fgsm-orig-pred">—</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-card-label">ADV PREDICTION</div>
+                                <div class="result-card-val red" id="fgsm-adv-pred">—</div>
+                            </div>
+                        </div>
+                        <div id="fgsm-verdict"></div>
+                        <div class="img-grid">
+                            <div class="img-card">
+                                <img id="fgsm-orig-img" src="" />
+                                <div class="img-card-label">ORIGINAL</div>
+                            </div>
+                            <div class="img-card">
+                                <img id="fgsm-noise-img" src="" />
+                                <div class="img-card-label">NOISE (×)</div>
+                            </div>
+                            <div class="img-card">
+                                <img id="fgsm-adv-img" src="" />
+                                <div class="img-card-label">ADVERSARIAL</div>
+                            </div>
+                        </div>
+                        <div class="conf-row">
+                            <div class="conf-card">
+                                <div class="conf-card-label">CONFIDENCE BEFORE</div>
+                                <img id="fgsm-conf-before" src="" />
+                            </div>
+                            <div class="conf-card">
+                                <div class="conf-card-label">CONFIDENCE AFTER</div>
+                                <img id="fgsm-conf-after" src="" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PGD -->
+            <div class="panel" id="panel-pgd">
+                <div class="panel-header">
+                    <div class="panel-title">▌ PGD ATTACK</div>
+                    <div class="panel-sub">Projected Gradient Descent — iterative, stronger attack.</div>
+                </div>
+                <div class="panel-body">
+                    <div class="explain-box">
+                        <div class="explain-title">// WHAT IS PGD?</div>
+                        <p><strong>Projected Gradient Descent</strong> is FGSM repeated many times. Each step takes a
+                            small gradient step, then "projects" back into the allowed perturbation budget. It finds a
+                            much stronger adversarial example because it iteratively searches for the worst-case input
+                            rather than taking one blind leap.</p>
+                        <div class="explain-grid">
+                            <div class="explain-item">
+                                <div class="explain-item-title">ε vs α vs STEPS</div>
+                                <strong>ε</strong> is the total budget — how far the final image can drift from the
+                                original. <strong>α</strong> is the step size per iteration; overshoot and you bounce
+                                around, too small and you converge slowly. <strong>Steps</strong> — more iterations find
+                                stronger adversarial examples, but with diminishing returns.
+                            </div>
+                            <div class="explain-item">
+                                <div class="explain-item-title">FGSM vs PGD</div>
+                                FGSM is one big step in the gradient direction. PGD is many small steps that explore the
+                                neighbourhood. PGD almost always succeeds where FGSM fails — it is considered the gold
+                                standard benchmark for evaluating adversarial robustness.
+                            </div>
+                        </div>
+                    </div>
+                    <div class="controls-grid">
+                        <div class="control-group">
+                            <div class="control-label">Epsilon (ε)</div>
+                            <div class="control-row">
+                                <input type="range" class="slider" id="pgd-eps" min="0.01" max="0.5" step="0.01"
+                                    value="0.01"
+                                    oninput="document.getElementById('pgd-eps-val').textContent=parseFloat(this.value).toFixed(2)" />
+                                <span class="slider-val" id="pgd-eps-val">0.01</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-label">Alpha (α) — step size</div>
+                            <div class="control-row">
+                                <input type="range" class="slider" id="pgd-alpha" min="0.001" max="0.1" step="0.001"
+                                    value="0.001"
+                                    oninput="document.getElementById('pgd-alpha-val').textContent=parseFloat(this.value).toFixed(3)" />
+                                <span class="slider-val" id="pgd-alpha-val">0.001</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-label">Steps</div>
+                            <div class="control-row">
+                                <input type="range" class="slider" id="pgd-steps" min="1" max="40" step="1" value="1"
+                                    oninput="document.getElementById('pgd-steps-val').textContent=this.value; buildStepPips(this.value)" />
+                                <span class="slider-val" id="pgd-steps-val">1</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="step-indicator" id="step-pips"></div>
+                    <div class="terminal" id="pgd-log"></div>
+                    <button class="btn red" id="btn-pgd-run" onclick="runPGD()">⚡ LAUNCH PGD ATTACK</button>
+                    <div id="pgd-results" style="display:none; flex-direction:column; gap:16px;">
+                        <div class="result-row">
+                            <div class="result-card">
+                                <div class="result-card-label">PGD PREDICTION</div>
+                                <div class="result-card-val red" id="pgd-pred">—</div>
+                            </div>
+                            <div class="result-card">
+                                <div class="result-card-label">TRUE LABEL</div>
+                                <div class="result-card-val" id="pgd-true">—</div>
+                            </div>
+                        </div>
+                        <div id="pgd-verdict"></div>
+                        <div class="img-grid" style="grid-template-columns:1fr 1fr;">
+                            <div class="img-card">
+                                <img id="pgd-adv-img" src="" />
+                                <div class="img-card-label">PGD ADVERSARIAL</div>
+                            </div>
+                            <div class="conf-card"
+                                style="border:1px solid var(--border);background:var(--panel);padding:10px;">
+                                <div class="conf-card-label">CONFIDENCE AFTER PGD</div>
+                                <img id="pgd-conf" src="" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- EXTRACT -->
+            <div class="panel" id="panel-extract">
+                <div class="panel-header">
+                    <div class="panel-title">▌ MODEL EXTRACTION</div>
+                    <div class="panel-sub">Black-box attack — bypass the rate limiter to steal the victim model.</div>
+                </div>
+                <div class="panel-body">
+
+                    <!-- Brief -->
+                    <div class="hint" style="font-size:0.72rem;line-height:1.9;color:var(--green-dim);">
+                        <div class="explain-box" style="margin-bottom:0;">
+                            <div class="explain-title">// WHAT IS MODEL EXTRACTION?</div>
+                            <p>You have no access to the model's weights or training data — only its prediction API. By
+                                sending inputs and recording outputs, you can train a <strong>surrogate model</strong>
+                                that mimics the victim's behaviour. This is how real attackers steal proprietary models
+                                from cloud APIs.</p>
+                            <div class="explain-grid">
+                                <div class="explain-item">
+                                    <div class="explain-item-title">THE RATE LIMITER</div>
+                                    Real APIs monitor query volume and flag unusual patterns — systematic high-volume
+                                    querying is a dead giveaway. You need to throttle your requests to blend in with
+                                    normal traffic. Too slow and the extraction takes forever. Too fast and you get
+                                    caught.
+                                </div>
+                                <div class="explain-item">
+                                    <div class="explain-item-title">CLONE FIDELITY</div>
+                                    This measures how closely your surrogate matches the victim's predictions — not just
+                                    its general accuracy. High fidelity means you have effectively stolen the model's
+                                    decision boundary, not just its approximate skill level.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Delay slider -->
+                    <div class="control-group" style="max-width:480px;">
+                        <div class="control-label">Query delay — ms between each API request</div>
+                        <div class="control-row">
+                            <input type="range" class="slider" id="extract-delay" min="0" max="200" step="5" value="0"
+                                oninput="document.getElementById('extract-delay-val').textContent=this.value+'ms';" />
+                            <span class="slider-val" id="extract-delay-val">0ms</span>
+                        </div>
+                    </div>
+
+                    <!-- Live threat gauge -->
+                    <div style="display:flex;gap:16px;align-items:stretch;">
+                        <div style="border:1px solid var(--border);background:var(--panel);padding:14px 20px;flex:1;">
+                            <div style="font-size:0.6rem;letter-spacing:3px;color:var(--green-dark);margin-bottom:8px;">
+                                QUERIES COLLECTED</div>
+                            <div style="display:flex;align-items:baseline;gap:6px;">
+                                <span id="ext-collected"
+                                    style="font-family:Orbitron,monospace;font-size:1.6rem;color:var(--green);">0</span>
+                                <span style="font-size:0.7rem;color:var(--green-dark);">/ 500</span>
+                            </div>
+                            <div class="progress-bar" style="margin-top:8px;">
+                                <div class="progress-fill" id="ext-progress-bar" style="transition:none;"></div>
+                            </div>
+                        </div>
+                        <div style="border:1px solid var(--border);background:var(--panel);padding:14px 20px;flex:1;">
+                            <div style="font-size:0.6rem;letter-spacing:3px;color:var(--green-dark);margin-bottom:8px;">
+                                CURRENT Q/S</div>
+                            <div id="ext-qps"
+                                style="font-family:Orbitron,monospace;font-size:1.6rem;color:var(--green);">—</div>
+                        </div>
+                        <div style="border:1px solid var(--border);background:var(--panel);padding:14px 20px;flex:1;">
+                            <div style="font-size:0.6rem;letter-spacing:3px;color:var(--green-dark);margin-bottom:8px;">
+                                THREAT LEVEL</div>
+                            <div id="ext-threat"
+                                style="font-family:Orbitron,monospace;font-size:1rem;letter-spacing:2px;color:var(--green);">
+                                SAFE</div>
+                        </div>
+                        <div style="border:1px solid var(--border);background:var(--panel);padding:14px 20px;flex:1;">
+                            <div style="font-size:0.6rem;letter-spacing:3px;color:var(--green-dark);margin-bottom:8px;">
+                                BLOCKS</div>
+                            <div id="ext-blocks"
+                                style="font-family:Orbitron,monospace;font-size:1.6rem;color:var(--green);">0 / 3</div>
+                        </div>
+                    </div>
+
+                    <!-- Blocked alert (hidden until triggered) -->
+                    <div id="ext-blocked-alert" style="display:none;" class="attack-success">
+                        ⛔ <span id="ext-blocked-msg">RATE LIMITED</span>
+                    </div>
+
+                    <div class="terminal" id="extract-log"></div>
+                    <button class="btn amber" id="btn-extract-run" onclick="runExtract()">⚡ LAUNCH EXTRACTION</button>
+
+                    <div id="extract-results" style="display:none;flex-direction:column;gap:16px;">
+                        <div class="acc-row">
+                            <div class="acc-item">
+                                <div class="acc-label"><span>VICTIM MODEL ACCURACY</span><span
+                                        id="victim-acc-val">—</span></div>
+                                <div class="acc-bar">
+                                    <div class="acc-fill victim" id="victim-acc-bar"></div>
+                                </div>
+                            </div>
+                            <div class="acc-item">
+                                <div class="acc-label"><span>STOLEN MODEL ACCURACY</span><span
+                                        id="stolen-acc-val">—</span></div>
+                                <div class="acc-bar">
+                                    <div class="acc-fill stolen" id="stolen-acc-bar"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="extract-stats" style="display:flex;gap:12px;flex-wrap:wrap;"></div>
+                        <div id="extract-verdict"></div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // ── State ────────────────────────────────────────────────────────────────────
+        // Slider track fill
+        function updateSliderFill(slider) {
+            const min = parseFloat(slider.min), max = parseFloat(slider.max), val = parseFloat(slider.value);
+            const pct = ((val - min) / (max - min)) * 100;
+            slider.style.background = `linear-gradient(to right, var(--green) ${pct}%, var(--green-dark) ${pct}%)`;
+        }
+        function initSliders() {
+            document.querySelectorAll('.slider').forEach(s => {
+                updateSliderFill(s);
+                s.addEventListener('input', () => updateSliderFill(s));
+            });
+        }
+        document.addEventListener('DOMContentLoaded', initSliders);
+        let modelTrained = false;
+        const WS_BASE = `ws://${location.host}`;
+
+        // ── Nav ──────────────────────────────────────────────────────────────────────
+        function showPanel(id) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('panel-' + id).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        function unlock(id) {
+            const el = document.getElementById(id);
+            if (el) {
+                el.disabled = false;
+                // Brief flash to signal newly unlocked
+                el.style.transition = 'box-shadow 0.1s';
+                el.style.boxShadow = '0 0 16px var(--green)';
+                setTimeout(() => el.style.boxShadow = '', 800);
+            }
+        }
+
+        function unlockAfterTrain() {
+            unlock('btn-recon');
+            unlock('btn-upload');
+            document.getElementById('hdr-model-status').textContent = 'MODEL: LOADED';
+        }
+
+        // ── Terminal logging ─────────────────────────────────────────────────────────
+        function logTo(termId, msg, cls = '') {
+            const term = document.getElementById(termId);
+            const cursor = term.querySelector('.cursor');
+            if (cursor) cursor.remove();
+
+            const now = new Date();
+            const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `<span class="log-time">[${ts}]</span><span class="log-msg ${cls}">${msg}</span>`;
+            term.appendChild(line);
+
+            const cur = document.createElement('span');
+            cur.className = 'cursor';
+            term.appendChild(cur);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        function clearTerm(id) {
+            document.getElementById(id).innerHTML = '<span class="cursor"></span>';
+        }
+
+        // ── Training ─────────────────────────────────────────────────────────────────
+        function startTraining() {
+            const btn = document.getElementById('btn-start-train');
+            btn.disabled = true;
+            clearTerm('train-log');
+            logTo('train-log', 'Connecting to TRINET backend...');
+
+            const ws = new WebSocket(`${WS_BASE}/ws/train`);
+
+            ws.onmessage = e => {
+                const d = JSON.parse(e.data);
+                if (d.event === 'log') {
+                    logTo('train-log', d.msg, 'highlight');
+                } else if (d.event === 'progress') {
+                    document.getElementById('train-bar').style.width = d.pct + '%';
+                    document.getElementById('train-pct').textContent = d.pct + '%';
+                    document.getElementById('train-epoch').textContent = `EPOCH ${d.epoch}/3`;
+                    document.getElementById('train-loss').textContent = d.loss;
+                } else if (d.event === 'recon') {
+                    // Populate recon panel
+                    document.getElementById('recon-true').textContent = d.true_label;
+                    document.getElementById('recon-pred').textContent = d.pred;
+                    document.getElementById('recon-img').src = 'data:image/png;base64,' + d.image_b64;
+                    document.getElementById('recon-img').style.display = '';
+                    document.getElementById('recon-conf').src = 'data:image/png;base64,' + d.conf_b64;
+                    document.getElementById('recon-conf').style.display = '';
+                    modelTrained = true;
+                } else if (d.event === 'done') {
+                    logTo('train-log', d.msg, 'highlight');
+                    unlockAfterTrain();
+                    unlock('btn-fgsm');  // recon image already loaded from training
+                    btn.textContent = '✔ TRAINING COMPLETE';
+                    markDone('train');
+                }
+            };
+
+            ws.onerror = () => logTo('train-log', 'WebSocket error — is the server running?', 'error');
+        }
+
+        // ── FGSM ─────────────────────────────────────────────────────────────────────
+        function runFGSM() {
+            const eps = parseFloat(document.getElementById('fgsm-eps').value);
+            clearTerm('fgsm-log');
+            document.getElementById('fgsm-results').style.display = 'none';
+            document.getElementById('btn-fgsm-run').disabled = true;
+
+            const ws = new WebSocket(`${WS_BASE}/ws/fgsm`);
+            ws.onopen = () => ws.send(JSON.stringify({ epsilon: eps }));
+            ws.onmessage = e => {
+                const d = JSON.parse(e.data);
+                if (d.event === 'log') {
+                    logTo('fgsm-log', d.msg, 'highlight');
+                } else if (d.event === 'result') {
+                    document.getElementById('fgsm-orig-pred').textContent = d.orig_pred;
+                    document.getElementById('fgsm-adv-pred').textContent = d.adv_pred;
+                    document.getElementById('fgsm-orig-img').src = 'data:image/png;base64,' + d.orig_img_b64;
+                    document.getElementById('fgsm-noise-img').src = 'data:image/png;base64,' + d.noise_b64;
+                    document.getElementById('fgsm-adv-img').src = 'data:image/png;base64,' + d.adv_img_b64;
+                    document.getElementById('fgsm-conf-before').src = 'data:image/png;base64,' + d.conf_before_b64;
+                    document.getElementById('fgsm-conf-after').src = 'data:image/png;base64,' + d.conf_after_b64;
+
+                    const verdict = document.getElementById('fgsm-verdict');
+                    if (d.success) {
+                        verdict.innerHTML = '<div class="attack-success">⚠ ATTACK SUCCESSFUL — MODEL FOOLED</div>';
+                        unlock('btn-pgd');
+                        markDone('fgsm');
+                    } else {
+                        verdict.innerHTML = '<div class="attack-fail">✔ ATTACK FAILED — MODEL HELD — increase ε to proceed</div>';
+                    }
+
+                    document.getElementById('fgsm-results').style.display = 'flex';
+                    document.getElementById('btn-fgsm-run').disabled = false;
+                } else if (d.event === 'error') {
+                    logTo('fgsm-log', d.msg, 'error');
+                    document.getElementById('btn-fgsm-run').disabled = false;
+                }
+            };
+            ws.onerror = () => { logTo('fgsm-log', 'Connection error', 'error'); document.getElementById('btn-fgsm-run').disabled = false; };
+        }
+
+        // ── PGD ──────────────────────────────────────────────────────────────────────
+        function buildStepPips(n) {
+            const container = document.getElementById('step-pips');
+            container.innerHTML = '';
+            for (let i = 0; i < n; i++) {
+                const pip = document.createElement('div');
+                pip.className = 'step-pip';
+                pip.id = `pip-${i}`;
+                container.appendChild(pip);
+            }
+        }
+        buildStepPips(10);
+
+        function runPGD() {
+            const eps = parseFloat(document.getElementById('pgd-eps').value);
+            const alpha = parseFloat(document.getElementById('pgd-alpha').value);
+            const steps = parseInt(document.getElementById('pgd-steps').value);
+            buildStepPips(steps);
+            clearTerm('pgd-log');
+            document.getElementById('pgd-results').style.display = 'none';
+            document.getElementById('btn-pgd-run').disabled = true;
+
+            const ws = new WebSocket(`${WS_BASE}/ws/pgd`);
+            ws.onopen = () => ws.send(JSON.stringify({ epsilon: eps, alpha, steps }));
+            ws.onmessage = e => {
+                const d = JSON.parse(e.data);
+                if (d.event === 'log') {
+                    logTo('pgd-log', d.msg, 'highlight');
+                } else if (d.event === 'step') {
+                    const pip = document.getElementById(`pip-${d.step - 1}`);
+                    if (pip) pip.classList.add('done');
+                    logTo('pgd-log', `PGD step ${d.step}/${d.total}`);
+                } else if (d.event === 'result') {
+                    document.getElementById('pgd-pred').textContent = d.pgd_pred;
+                    document.getElementById('pgd-true').textContent = d.true_label;
+                    document.getElementById('pgd-adv-img').src = 'data:image/png;base64,' + d.adv_img_b64;
+                    document.getElementById('pgd-conf').src = 'data:image/png;base64,' + d.conf_b64;
+
+                    const verdict = document.getElementById('pgd-verdict');
+                    if (d.success) {
+                        verdict.innerHTML = '<div class="attack-success">⚠ PGD ATTACK SUCCESSFUL — MODEL HIJACKED</div>';
+                        unlock('btn-extract');
+                        markDone('pgd');
+                    } else {
+                        verdict.innerHTML = '<div class="attack-fail">✔ MODEL RESISTED PGD — increase ε or steps to proceed</div>';
+                    }
+
+                    document.getElementById('pgd-results').style.display = 'flex';
+                    document.getElementById('btn-pgd-run').disabled = false;
+                } else if (d.event === 'error') {
+                    logTo('pgd-log', d.msg, 'error');
+                    document.getElementById('btn-pgd-run').disabled = false;
+                }
+            };
+            ws.onerror = () => { logTo('pgd-log', 'Connection error', 'error'); document.getElementById('btn-pgd-run').disabled = false; };
+        }
+
+        // ── Upload ───────────────────────────────────────────────────────────────────
+        async function handleUpload(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const form = new FormData();
+            form.append('file', file);
+
+            const res = await fetch('/upload-image', { method: 'POST', body: form });
+            const data = await res.json();
+
+            if (data.error) { alert(data.error); return; }
+
+            document.getElementById('upload-pred').textContent = data.pred;
+            document.getElementById('upload-img').src = 'data:image/png;base64,' + data.image_b64;
+            document.getElementById('upload-conf').src = 'data:image/png;base64,' + data.conf_b64;
+            document.getElementById('upload-result').style.display = '';
+            document.getElementById('upload-imgs').style.display = '';
+            unlock('btn-fgsm');
+        }
+
+        // ── Model Extraction ─────────────────────────────────────────────────────────
+        function setThreat(qps) {
+            const el = document.getElementById('ext-threat');
+            const qpsEl = document.getElementById('ext-qps');
+            qpsEl.textContent = qps;
+            if (qps >= 10) { el.textContent = 'CRITICAL'; el.style.color = 'var(--red)'; qpsEl.style.color = 'var(--red)'; }
+            else if (qps >= 7) { el.textContent = 'WARNING'; el.style.color = 'var(--amber)'; qpsEl.style.color = 'var(--amber)'; }
+            else if (qps >= 4) { el.textContent = 'ELEVATED'; el.style.color = 'var(--amber)'; qpsEl.style.color = 'var(--green)'; }
+            else { el.textContent = 'SAFE'; el.style.color = 'var(--green)'; qpsEl.style.color = 'var(--green)'; }
+        }
+
+        function runExtract() {
+            const delay = parseInt(document.getElementById('extract-delay').value);
+            clearTerm('extract-log');
+            document.getElementById('extract-results').style.display = 'none';
+            document.getElementById('ext-blocked-alert').style.display = 'none';
+            document.getElementById('ext-collected').textContent = '0';
+            document.getElementById('ext-progress-bar').style.width = '0%';
+            document.getElementById('ext-qps').textContent = '—';
+            document.getElementById('ext-blocks').textContent = '0 / 3';
+            document.getElementById('ext-threat').textContent = 'SAFE';
+            document.getElementById('ext-threat').style.color = 'var(--green)';
+            document.getElementById('btn-extract-run').disabled = true;
+
+            const ws = new WebSocket(`${WS_BASE}/ws/extract`);
+            ws.onopen = () => ws.send(JSON.stringify({ delay_ms: delay }));
+
+            ws.onmessage = e => {
+                const d = JSON.parse(e.data);
+
+                if (d.event === 'log') {
+                    logTo('extract-log', d.msg, 'highlight');
+
+                } else if (d.event === 'progress') {
+                    document.getElementById('ext-collected').textContent = d.collected;
+                    document.getElementById('ext-progress-bar').style.width = d.pct + '%';
+                    setThreat(d.qps);
+
+                } else if (d.event === 'blocked') {
+                    const blocksEl = document.getElementById('ext-blocks');
+                    blocksEl.textContent = d.blocked + ' / 3';
+                    blocksEl.style.color = d.blocked >= 2 ? 'var(--red)' : 'var(--amber)';
+                    document.getElementById('ext-blocked-alert').style.display = '';
+                    document.getElementById('ext-blocked-msg').textContent = d.msg;
+                    document.getElementById('ext-threat').textContent = 'BLOCKED';
+                    document.getElementById('ext-threat').style.color = 'var(--red)';
+                    logTo('extract-log', d.msg, 'error');
+                    // Flash the panel
+                    document.getElementById('panel-extract').style.outline = '2px solid var(--red)';
+                    setTimeout(() => document.getElementById('panel-extract').style.outline = '', 600);
+
+                } else if (d.event === 'result') {
+                    document.getElementById('ext-blocked-alert').style.display = 'none';
+                    const vAcc = (d.victim_acc * 100).toFixed(1) + '%';
+                    const sAcc = (d.surrogate_acc * 100).toFixed(1) + '%';
+                    document.getElementById('victim-acc-val').textContent = vAcc;
+                    document.getElementById('stolen-acc-val').textContent = sAcc;
+                    document.getElementById('victim-acc-bar').style.width = (d.victim_acc * 100) + '%';
+                    document.getElementById('victim-acc-bar').textContent = vAcc;
+                    document.getElementById('stolen-acc-bar').style.width = (d.surrogate_acc * 100) + '%';
+                    document.getElementById('stolen-acc-bar').textContent = sAcc;
+
+                    const ratio = ((d.surrogate_acc / d.victim_acc) * 100).toFixed(1);
+                    document.getElementById('extract-stats').innerHTML = `
+        <div class="result-card"><div class="result-card-label">QUERIES SENT</div><div class="result-card-val">${d.queries}</div></div>
+        <div class="result-card"><div class="result-card-label">TIMES BLOCKED</div><div class="result-card-val ${d.blocked > 0 ? 'amber' : ''}">${d.blocked}</div></div>
+        <div class="result-card"><div class="result-card-label">CLONE FIDELITY</div><div class="result-card-val red">${ratio}%</div></div>`;
+                    document.getElementById('extract-verdict').innerHTML =
+                        `<div class="attack-success">⚠ SURROGATE ACHIEVED ${ratio}% OF VICTIM ACCURACY — MODEL STOLEN</div>`;
+
+                    document.getElementById('extract-results').style.display = 'flex';
+                    document.getElementById('btn-extract-run').disabled = false;
+                    markDone('extract');
+
+                } else if (d.event === 'error') {
+                    logTo('extract-log', d.msg, 'error');
+                    document.getElementById('btn-extract-run').disabled = false;
+                    document.getElementById('btn-extract-run').textContent = '↺ RETRY EXTRACTION';
+                }
+            };
+            ws.onerror = () => {
+                logTo('extract-log', 'Connection error', 'error');
+                document.getElementById('btn-extract-run').disabled = false;
+            };
+        }
+
+        // Drag-and-drop on upload zone
+        const zone = document.getElementById('upload-zone');
+        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+        zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+        zone.addEventListener('drop', e => {
+            e.preventDefault();
+            zone.classList.remove('drag');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                document.getElementById('file-input').files = e.dataTransfer.files;
+                handleUpload(document.getElementById('file-input'));
+            }
+        });
+
+        // ── Lab Completion Tracking ───────────────────────────────────────────────────
+        const completed = { train: false, fgsm: false, pgd: false, extract: false };
+
+        function markDone(phase) {
+            completed[phase] = true;
+            if (completed.train && completed.fgsm && completed.pgd && completed.extract) {
+                setTimeout(showLabComplete, 800);
+            }
+        }
+
+        function showLabComplete() {
+            startMatrixRain();
+            document.getElementById('lab-modal').classList.add('open');
+        }
+
+        function startMatrixRain() {
+            const el = document.getElementById('matrix-rain');
+            const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
+            let html = '';
+            for (let i = 0; i < 600; i++) {
+                html += chars[Math.floor(Math.random() * chars.length)];
+                if (i % 40 === 39) html += '\n';
+            }
+            el.textContent = html;
+            // Animate cycling
+            setInterval(() => {
+                const arr = el.textContent.split('');
+                for (let i = 0; i < 8; i++) {
+                    const idx = Math.floor(Math.random() * arr.length);
+                    arr[idx] = chars[Math.floor(Math.random() * chars.length)];
+                }
+                el.textContent = arr.join('');
+            }, 80);
+        }
+    </script>
+
+    <!-- ── Lab Complete Modal ─────────────────────────────────────────────────── -->
+    <div class="modal-overlay" id="lab-modal">
+        <div class="modal">
+            <div class="modal-matrix" id="matrix-rain"></div>
+            <div class="modal-skull">☠</div>
+            <div class="modal-title">LAB COMPLETE</div>
+            <div class="modal-sub">// ALL ATTACK PHASES EXECUTED //</div>
+            <div class="modal-phases">
+                <div class="modal-phase"><span class="check">✔</span> Victim model trained &amp; deployed</div>
+                <div class="modal-phase"><span class="check">✔</span> Reconnaissance completed</div>
+                <div class="modal-phase"><span class="check">✔</span> FGSM adversarial attack executed</div>
+                <div class="modal-phase"><span class="check">✔</span> PGD iterative attack executed</div>
+                <div class="modal-phase"><span class="check">✔</span> Model extraction (theft) completed</div>
+            </div>
+            <div class="modal-score">MISSION STATUS: <span>COMPROMISED</span></div>
+            <button class="modal-close" onclick="document.getElementById('lab-modal').classList.remove('open')">
+                [ CLOSE DEBRIEF ]
+            </button>
+        </div>
+    </div>
+</body>
+
+</html>
