@@ -17,18 +17,12 @@ If you have just received this lab folder, follow these steps to run the applica
    ```bash
    npm install
    ```
-3. **Configure Environment Variables**:
-   - Copy the `.env.example` file and rename it to `.env` (or create a new `.env` file).
-   - Add your OpenAI API key inside the `.env` file:
-     ```env
-     OPENAI_API_KEY=sk-your-api-key-here
-     ```
-4. **Start the Application**:
+3. **Start the Application**:
    ```bash
    npm run dev
    ```
    *(or `npm start`)*
-5. **Access the Lab**: Open **[http://localhost:3000](http://localhost:3000)** in your web browser.
+4. **Access the Lab**: Open **[http://localhost:3000](http://localhost:3000)** in your web browser.
 
 ### How to Solve This Lab (Overview)
 The general workflow for this lab involves three main phases:
